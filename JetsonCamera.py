@@ -17,10 +17,9 @@ def gstreamer_pipeline(
     display_width=2560,
     display_height=1440,
     framerate=17,
-    flip_method=0, # KEIN Hardware Flip!
+    flip_method=0,
 ):
     return (
-        # HIER GEÄNDERT: -0.5 statt -1.2 für helleres Bild
         "nvarguscamerasrc sensor-id=0 exposurecompensation=-0.5 ! "
         "video/x-raw(memory:NVMM), width=(int)%d, height=(int)%d, format=NV12, framerate=(fraction)%d/1 ! "
         "nvvidconv flip-method=%d ! "
