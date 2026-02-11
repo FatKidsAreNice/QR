@@ -1,15 +1,37 @@
 # delete_schrank.py
+"""
+Interaktives Lösch-Tool für das Inventar.
+
+Zweck
+-----
+Dieses Skript dient der manuellen Bestandsbereinigung:
+1. Identifikation: Abfrage einer Schrank-ID über die Konsole.
+2. Verifikation: Ruft die Daten ab und zeigt sie zur Kontrolle an (Vermeidung von Fehl-Löschungen).
+3. Bereinigung: Entfernt den Eintrag aus der Datenbank UND löscht die generierte QR-Code-Datei.
+
+Design-Notizen
+--------------
+- Sicherheitsabfrage: Der Nutzer muss explizit mit "ja" bestätigen.
+- Datenkonsistenz: Es wird sichergestellt, dass keine verwaisten QR-Code-Bilder (Artefakte) 
+  im Dateisystem verbleiben, wenn der Datenbankeintrag entfernt wird.
+"""
+
 from database import DatabaseManager
 from qr_generator import QRCodeGenerator
 
 def delete_existing_schrank():
     """
-    Führt einen Dialog, um einen existierenden Schrank
-    anhand seiner ID zu löschen.
+    Führt einen Dialog, um einen existierenden Schrank sicher zu löschen.
+    
+    Ablauf:
+    1. ID-Eingabe & Validierung.
+    2. Datenbank-Lookup (Existenzprüfung).
+    3. Anzeige der zu löschenden Daten (Vorschau).
+    4. Bestätigung & Durchführung (DB + Dateisystem).
     """
     print("--- Schrank löschen ---")
     
-    # 1. ID vom Benutzer abfragen
+    # ---------- 1. Benutzereingabe ----------
     id_input = input("Welche Schrank-ID soll gelöscht werden? ")
     
     try:
@@ -18,12 +40,13 @@ def delete_existing_schrank():
         print("Fehler: Das ist keine gültige Zahl. Abbruch.")
         return
 
-    # 2. Komponenten initialisieren
+    # ---------- 2. Ressourcen-Initialisierung ----------
     db_manager = DatabaseManager()
     qr_gen = QRCodeGenerator()
     
     try:
-        # 3. Zur Sicherheit nach den Daten fragen, bevor wir löschen
+        # ---------- 3. Verifikation (Lookup) ----------
+        # Wir holen den Datensatz zuerst, um dem User zu zeigen, WAS gelöscht wird.
         schrank_data = db_manager.get_schrank_by_id(schrank_id)
         
         if not schrank_data:
@@ -37,18 +60,19 @@ def delete_existing_schrank():
         print(f" Abgang: {schrank_data['abgangspunkt']}")
         print("---------------------------------------")
 
-        # 4. Bestätigung einholen
+        # ---------- 4. Sicherheitsabfrage ----------
         confirm = input("Diesen Eintrag wirklich löschen? (ja/nein): ").lower()
         
         if confirm == 'ja':
-            # 5. Aus Datenbank löschen
+            # ---------- 5. Datenbank-Bereinigung ----------
             if db_manager.delete_schrank_by_id(schrank_id):
                 print(f"Schrank {schrank_id} erfolgreich aus der Datenbank gelöscht.")
                 
-                # 6. Zugehörigen QR-Code löschen
+                # ---------- 6. Dateisystem-Bereinigung ----------
+                # Löscht das physische PNG-Bild, um Speicherplatz freizugeben
                 qr_gen.delete_qr_for_schrank(schrank_id)
             else:
-                # Sollte nicht passieren, da wir 'get_schrank_by_id' vorher aufgerufen haben
+                # Fallback: Sollte theoretisch nicht erreicht werden, da Check oben erfolgreich war
                 print(f"Fehler: Schrank {schrank_id} konnte nicht gelöscht werden.")
         else:
             print("Löschvorgang abgebrochen.")
