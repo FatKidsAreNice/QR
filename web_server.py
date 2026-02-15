@@ -104,9 +104,9 @@ def start_server():
     - host='0.0.0.0': Erlaubt Zugriff von außen (z.B. Handy im gleichen WLAN).
     - use_reloader=False: Verhindert doppelte Ausführung bei manchen IDEs/Setups.
     """
-    print("Starte den Web-Server auf http://127.0.0.1:5000 ...")
     app.run(debug=True, port=5000, use_reloader=False, host='0.0.0.0')
 
 if __name__ == "__main__":
     start_server()
+
 
