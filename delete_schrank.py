@@ -1,19 +1,10 @@
 # delete_schrank.py
 """
-Interaktives Lösch-Tool für das Inventar.
+Interaktives Skript zum Löschen von Schränken.
 
-Zweck
------
-Dieses Skript dient der manuellen Bestandsbereinigung:
-1. Identifikation: Abfrage einer Schrank-ID über die Konsole.
-2. Verifikation: Ruft die Daten ab und zeigt sie zur Kontrolle an (Vermeidung von Fehl-Löschungen).
-3. Bereinigung: Entfernt den Eintrag aus der Datenbank UND löscht die generierte QR-Code-Datei.
-
-Design-Notizen
---------------
-- Sicherheitsabfrage: Der Nutzer muss explizit mit "ja" bestätigen.
-- Datenkonsistenz: Es wird sichergestellt, dass keine verwaisten QR-Code-Bilder (Artefakte) 
-  im Dateisystem verbleiben, wenn der Datenbankeintrag entfernt wird.
+Fragt den Nutzer nach einer Schrank-ID, zeigt die gefundenen Daten zur 
+Kontrolle an und löscht (nach einer Sicherheitsabfrage) sowohl den Eintrag 
+aus der SQLite-Datenbank als auch das dazugehörige QR-Code-Bild vom PC.
 """
 
 from database import DatabaseManager
@@ -21,13 +12,11 @@ from qr_generator import QRCodeGenerator
 
 def delete_existing_schrank():
     """
-    Führt einen Dialog, um einen existierenden Schrank sicher zu löschen.
+    Führt den kompletten Lösch-Dialog durch.
     
-    Ablauf:
-    1. ID-Eingabe & Validierung.
-    2. Datenbank-Lookup (Existenzprüfung).
-    3. Anzeige der zu löschenden Daten (Vorschau).
-    4. Bestätigung & Durchführung (DB + Dateisystem).
+    Holt zuerst den Datensatz zur Vorschau aus der DB, um versehentliche 
+    Löschungen zu vermeiden. Erst nach expliziter Bestätigung mit 'ja' 
+    werden der DB-Eintrag und die physische QR-Code-Datei entfernt.
     """
     print("--- Schrank löschen ---")
     
@@ -46,7 +35,6 @@ def delete_existing_schrank():
     
     try:
         # ---------- 3. Verifikation (Lookup) ----------
-        # Wir holen den Datensatz zuerst, um dem User zu zeigen, WAS gelöscht wird.
         schrank_data = db_manager.get_schrank_by_id(schrank_id)
         
         if not schrank_data:
@@ -82,3 +70,4 @@ def delete_existing_schrank():
 
 if __name__ == "__main__":
     delete_existing_schrank()
+
