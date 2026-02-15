@@ -1,29 +1,22 @@
-# run_web_server.py
+# DB_main.py
 """
 Hauptsteuerung / Entry-Point für das Schrank-Inventar-System.
 
-Zweck
------
-Diese Datei orchestriert die administrative Verwaltung des Systems:
-1. Persistenz-Check: Initialisiert die SQLite-Datenbank und stellt Tabellen sicher.
-2. API-Service: Startet den Flask-Webserver in einem Hintergrund-Thread (Daemon),
-   damit externe Anfragen (z.B. vom Scanner) parallel bearbeitet werden können.
-3. Mensch-Maschine-Schnittstelle (CLI): Bietet ein blockierendes Terminal-Menü
-   für den Administrator, um Stammdaten (Schränke) zu pflegen.
+Dieses Skript startet das komplette System:
+1. Prüft/erstellt die SQLite-Datenbank.
+2. Startet den Flask-Webserver im Hintergrund (Daemon-Thread), 
+   damit parallel QR-Scans vom Handy verarbeitet werden können.
+3. Öffnet das CLI-Menü zur Verwaltung der Schränke.
 
-Design-Notizen
---------------
-- Threading-Modell: Der Webserver läuft als `daemon=True`. Das garantiert, dass der
-  Server-Thread automatisch terminiert wird, sobald der User das CLI-Menü beendet.
-- Error-Handling: Die Datenbank-Initialisierung ist in einem Try-Block gekapselt,
-  um einen "Graceful Exit" zu ermöglichen, falls die Datei gesperrt ist.
-- Interaktivität: Das Menü nutzt eine Endlosschleife, die durch User-Input oder
-  KeyboardInterrupt (STRG+C) verlassen werden kann.
+Architektur-Hinweis:
+Der Server-Thread wird automatisch beendet, sobald das Hauptmenü 
+geschlossen wird (entweder über die Menüauswahl oder per STRG+C).
 """
 
 import threading
 import time
 import sys
+import socket
 
 # Eigene Module (Logik & Datenbank)
 from web_server import start_server
@@ -34,12 +27,26 @@ from database import DatabaseManager
 # Globale Status-Variablen
 server_running = False
 
+def get_local_ip():
+    """Ermittelt die echte WLAN/LAN IPv4-Adresse des Rechners."""
+    try:
+        # Baut eine Dummy-Verbindung auf
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        # Fallback, falls der PC gar kein Netzwerk hat
+        return "127.0.0.1"
+
 def start_server_in_thread():
     """
-    Startet den Flask-Server asynchron.
+    Startet den Flask-Server in einem separaten Hintergrund-Thread.
     
-    Da Flask standardmäßig blockiert, lagern wir ihn in einen Thread aus.
-    Daemon=True sorgt dafür, dass dieser Thread nicht das Beenden des Programms verhindert.
+    Das ist nötig, da app.run() blockiert. Durch daemon=True wird 
+    sichergestellt, dass der Server das Beenden des Hauptprogramms 
+    nicht blockiert.
     """
     global server_running
     
@@ -51,7 +58,12 @@ def start_server_in_thread():
         
         server_running = True
         time.sleep(1) # Kurzes Warten auf Socket-Bindung (UX-Optimierung)
-        print("Server aktiv auf http://127.0.0.1:5000")
+        
+        # NEU: Dynamische IP ermitteln und anzeigen
+        wlan_ip = get_local_ip()
+        print(f"Server aktiv!")
+        print(f"-> Lokal (nur dieser PC): http://127.0.0.1:5000")
+        print(f"-> Netzwerk (für QR-Codes): http://{wlan_ip}:5000")
     else:
         print("[INFO] Server läuft bereits.")
 
@@ -69,13 +81,9 @@ def main_menu():
     return input("Bitte wählen (1-3): ")
 
 def main():
-    """
-    Hauptablauf.
-    
-    Schritte:
-    1. Datenbank-Initialisierung.
-    2. Start des Background-Services (Webserver).
-    3. Start der administrativen CLI-Schleife.
+   """
+    Hauptablauf: Initialisiert die Datenbank, startet den Webserver 
+    und ruft abschließend die Endlosschleife für das CLI-Menü auf.
     """
     print("\n--- STARTE INVENTAR-MANAGEMENT SYSTEM ---\n")
 
@@ -126,3 +134,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
